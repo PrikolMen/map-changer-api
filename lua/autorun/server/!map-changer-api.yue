@@ -1,0 +1,64 @@
+config = {
+    "start-map": "gm_construct",
+    "blacklist": {}
+}
+
+do
+
+    unless file.Exists( "map-changer-api.json", "DATA" )
+        file.Write( "map-changer-api.json", util.TableToJSON( config, true ) )
+
+    json = file.Read( "map-changer-api.json", "DATA" )
+    if json ~= nil
+        data = util.JSONToTable( json )
+        if data ~= nil
+            table.Merge( config, data )
+
+game.ChangeMap = ( mapName ) ->
+    RunConsoleCommand( "changelevel", mapName )
+
+blacklist = config.blacklist
+if istable( blacklist )
+    for mapName in *blacklist
+        blacklist[ mapName ] = true
+
+else
+    blacklist = {}
+
+maps, mapCount = {}, 0
+
+do
+
+    for fileName in *file.Find( "maps/*.bsp", "GAME" )
+        mapCount += 1
+        maps[ mapCount ] = fileName\match( "(.+).bsp" )
+
+game.GetMaps = ->
+    return maps, mapCount
+
+startMap = config["start-map"]
+:random = math
+
+game.SelectRandomMap = ->
+    if mapCount == 0
+        return false
+
+    if mapCount == 1
+        mapName = maps[ 1 ]
+        if blacklist[ mapName ] ~= nil or mapName == startMap
+            return false
+
+        game.ChangeMap( mapName )
+        return true
+
+    for i = 1, mapCount
+        mapName = maps[ random( 1, mapCount ) ]
+        if blacklist[ mapName ] == nil and mapName ~= startMap
+            game.ChangeMap( mapName )
+            return true
+
+    return false
+
+timer.Simple 0, ->
+    if game.GetMap! == startMap
+        game.SelectRandomMap!
